@@ -20,7 +20,11 @@ var (
 	itemStyle       = lipgloss.NewStyle().Foreground(lipgloss.Color("#ffbbe8"))
 )
 
-func getTree(root string, maxDepth int) *tree.Tree {
+func isHidden(name string) bool {
+	return strings.HasPrefix(name, ".")
+}
+
+func getTree(root string, maxDepth int, showHidden bool) *tree.Tree {
 	t := tree.New()
 	last_node := make(map[int]*tree.Tree)
 	last_node[0] = t
@@ -44,6 +48,9 @@ func getTree(root string, maxDepth int) *tree.Tree {
 		}
 
 		if d.IsDir() {
+			if !showHidden && isHidden(name) {
+				return fs.SkipDir
+			}
 			t_new := tree.Root(rootStyle.Render(name))
 			last_node[depth].Child(t_new)
 			last_node[depth+1] = t_new
@@ -60,31 +67,36 @@ func getTree(root string, maxDepth int) *tree.Tree {
 	return t
 }
 
-func argParse() (string, int) {
-	var maxDepth int
-	var root string
+type cliArgs struct {
+	root       string
+	maxDepth   int
+	showHidden bool
+}
 
+func argParse() cliArgs {
+	args := cliArgs{}
 	flag.Usage = func() {
 		fmt.Println(`Usage: tree [options] dir
 
 dir is the root directory. Default is "."`)
 		flag.PrintDefaults()
 	}
-	flag.IntVar(&maxDepth, "depth", 0, "Maximum depth to display")
-	flag.IntVar(&maxDepth, "d", 0, "Maximum depth to display")
+	flag.IntVar(&args.maxDepth, "depth", 0, "Maximum depth to display")
+	flag.IntVar(&args.maxDepth, "d", 0, "Maximum depth to display")
+	flag.BoolVar(&args.showHidden, "show-hidden", false, "Show hidden directories. Default false")
 	flag.Parse()
 
-	root = "."
+	args.root = "."
 	if flag.NArg() > 0 {
-		root = flag.Arg(0)
+		args.root = flag.Arg(0)
 	}
 
-	return root, maxDepth
+	return args
 }
 
 func main() {
-	root, maxDepth := argParse()
-	t := getTree(root, maxDepth).
+	args := argParse()
+	t := getTree(args.root, args.maxDepth, args.showHidden).
 		Enumerator(tree.RoundedEnumerator).
 		EnumeratorStyle(enumeratorStyle)
 
